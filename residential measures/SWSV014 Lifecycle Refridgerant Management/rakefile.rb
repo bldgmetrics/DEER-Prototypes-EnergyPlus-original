@@ -908,8 +908,10 @@ def aggregate_profiles(column_name, output_path, run_csv_paths, runs_pathname, s
     csv_path = "#{runs_pathname}/#{short_path}"
     if (File.exist?(csv_path))
       csv = CSV.read(csv_path, :headers=>true)
+      # Some runs include sizing-period (design day) rows ahead of the annual
+      # RunPeriod; keep only the trailing 8760 hourly rows so all columns align.
       if (date_time)
-        column = csv["Date/Time"]
+        column = csv["Date/Time"].last(8760)
         column.unshift("Date/Time")  # Add header
         columns << column
         date_time = false
@@ -918,7 +920,7 @@ def aggregate_profiles(column_name, output_path, run_csv_paths, runs_pathname, s
         # Match column name to the header while ignoring units/interval, i.e., [J](Hourly).
         column_header = csv.headers.find { |header| header.match(column_name) }
       end
-      column = csv[column_header]
+      column = csv[column_header].last(8760)
       column.unshift(short_path)  # Add header
       columns << column
     else
