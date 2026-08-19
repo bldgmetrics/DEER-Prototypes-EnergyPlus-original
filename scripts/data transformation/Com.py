@@ -24,7 +24,7 @@ print(measures)
 #%%
 #Define measure name here (name of the measure folder itself
 ##NOTE: The example folder used here, 'SWXX111-00 Example_SEER_AC' is only used to illustrate an example workflow thru post-procesing
-measure_name = 'SWXX111-00 Example_SEER_AC'
+measure_name = 'SWHC062-03 Occupancy Fan Controller'
 
 #filter to specific measure mapping records from mapping workbook
 df_measure = df_com[df_com['Modelkit Folder Primary Name']== measure_name]
