@@ -196,7 +196,7 @@ def main():
     # Get all the results files
     all_files = []
     for study in study_folders:
-        search_path = make_search_paths(root, study)
+        search_path = Path(make_search_paths(root, study))
         found = search_directories(search_path, results_file_name)
         print("{}: {} runs".format(study, len(found)))
         all_files.extend(found)

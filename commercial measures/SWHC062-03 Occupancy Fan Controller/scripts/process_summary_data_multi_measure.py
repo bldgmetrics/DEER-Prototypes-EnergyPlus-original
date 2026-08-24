@@ -259,7 +259,7 @@ def main():
     # behind, so keep only the newest one per run to avoid double-counting.
     all_files = []
     for study in study_folders:
-        search_path = make_search_paths(root, study)
+        search_path = Path(make_search_paths(root, study))
         found = search_directories(search_path, results_file_name)
         newest = {}
         for f in found:
