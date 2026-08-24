@@ -27,29 +27,31 @@ def get_deer_peak_range(file, cz):
     # In the end we get what we want which is the 5 hours starting with the hour ENDING 16:00
     # to the hour ending 20:00 daylight savings time which is the same as the hours BETWEEN 16:00
     # and 21:00 Standard time.
+    # DEER peak days for CZ2025 weather files, per main branch
+    # scripts/energy savings/commercial/peakperspec.csv.
     peakspec = dict(
         [
-            ("CZ01", 238),
-            ("CZ02", 238),
-            ("CZ03", 238),
-            ("CZ04", 238),
-            ("CZ05", 259),
-            ("CZ06", 245),
-            ("CZ07", 245),
-            ("CZ08", 245),
-            ("CZ09", 244),
-            ("CZ10", 180),
-            ("CZ11", 180),
-            ("CZ12", 180),
-            ("CZ13", 180),
-            ("CZ14", 180),
-            ("CZ15", 180),
-            ("CZ16", 224),
+            ("CZ01", 266),
+            ("CZ02", 203),
+            ("CZ03", 266),
+            ("CZ04", 217),
+            ("CZ05", 266),
+            ("CZ06", 266),
+            ("CZ07", 271),
+            ("CZ08", 168),
+            ("CZ09", 168),
+            ("CZ10", 168),
+            ("CZ11", 187),
+            ("CZ12", 217),
+            ("CZ13", 187),
+            ("CZ14", 187),
+            ("CZ15", 238),
+            ("CZ16", 187),
         ]
     )
 
     start_datetime = datetime.datetime.strptime(
-        "2017" + "-" + str(peakspec[cz]), "%Y-%j"
+        "2009" + "-" + str(peakspec[cz]), "%Y-%j"
     )
     start_date = start_datetime.date()
     numdays = 3

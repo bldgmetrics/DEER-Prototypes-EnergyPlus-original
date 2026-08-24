@@ -236,27 +236,39 @@ def write_header(output_file):
 
 def main():
 
-    # root of the DEER package install
-    if platform.system() in ["Windows"]:
-        root = "C:\\DEER-Prototypes-EnergyPlus-SWHC009\\commercial measures\\SWHC062-05 Supply Fan Controls\\"
-        search_folder = "SWHC062-05 Supply Fan Controls_Htl_Ex\\"
-        results_folder = PurePath("C:\\test\\")
-    elif platform.system() in ["Linux", "Darwin"]:
-        root = "/Users/jwj/"
-        search_folder = "e_plus_runs/"
-        results_folder = PurePath("/Users/jwj/e_plus_results/")
-    else:
-        print("What, exactly, are you running this on!")
-        exit()
+    # Root of the measure folder that contains the experiment subfolders.
+    root = "C:\\dev\\SWHC062-03\\commercial measures\\SWHC062-03 Occupancy Fan Controller\\"
 
-    search_path = make_search_paths(root, search_folder)
-    offset = len(PurePath(root).parts) + len(PurePath(search_folder).parts)
+    # Experiment subfolders to process. Each is expected to contain a "runs"
+    # directory laid out as runs/CZ##/<BldgType>/<M#-cSYS-Base|Measure>/instance<stamp>/eplustbl.csv.
+    study_folders = [
+        "SWHC062-03 Occupancy Fan Controller_Htl_Ex",  # Hotel
+        "SWHC062-03 Occupancy Fan Controller_Ex",      # all other building types
+    ]
+
+    results_folder = PurePath(root)
+
+    # Both studies sit at the same depth under root, so one offset works for all.
+    offset = len(PurePath(root).parts) + 1
 
     # Results file_name
     results_file_name = "eplustbl.csv"
 
-    # Get all the results files
-    all_files = search_directories(search_path, results_file_name)
+    # Get all the results files. eplustbl.csv lives inside a timestamped
+    # instance<MMDDHHMMSS> subfolder; re-run cases leave the old subfolder
+    # behind, so keep only the newest one per run to avoid double-counting.
+    all_files = []
+    for study in study_folders:
+        search_path = make_search_paths(root, study)
+        found = search_directories(search_path, results_file_name)
+        newest = {}
+        for f in found:
+            case_dir = PurePath(f).parents[1]
+            if case_dir not in newest or PurePath(f).parts[-2] > PurePath(newest[case_dir]).parts[-2]:
+                newest[case_dir] = f
+        print("{}: {} files, {} kept after newest-instance filter".format(
+            study, len(found), len(newest)))
+        all_files.extend(newest.values())
 
     # Create batches
     batches = by_batch(offset, all_files)
