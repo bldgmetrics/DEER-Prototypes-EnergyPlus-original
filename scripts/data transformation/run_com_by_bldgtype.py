@@ -1,7 +1,7 @@
-#Run Com.py once per building-type workbook in DEER_EnergyPlus_Modelkit_Measure_list_working_dir,
+#Run Com_SWHC062.py once per building-type workbook in DEER_EnergyPlus_Modelkit_Measure_list_working_dir,
 #stashing each pass's outputs under outputs_by_bldgtype/<BldgType>/.
-#Each pass copies the per-type workbook onto the plain workbook name Com.py reads,
-#and sets COM_BT_FILTER so Com.py only reads that building type's runs.
+#Each pass copies the per-type workbook onto the plain workbook name the script reads,
+#and sets COM_BT_FILTER so it only reads that building type's runs.
 #Afterwards the plain workbook is restored to the Asm copy (the committed version).
 import os, shutil, subprocess, sys, time
 
@@ -33,7 +33,7 @@ for wb in wbs:
     env = dict(os.environ, COM_BT_FILTER=bt)
     t0 = time.time()
     with open(os.path.join(dest, "com_run.log"), "w") as log:
-        r = subprocess.run([sys.executable, "Com.py"], stdout=log, stderr=subprocess.STDOUT, env=env)
+        r = subprocess.run([sys.executable, "Com_SWHC062.py"], stdout=log, stderr=subprocess.STDOUT, env=env)
     moved = []
     for f in OUTPUTS:
         if os.path.exists(f):

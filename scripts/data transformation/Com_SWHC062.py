@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import glob
+import sqlite3
 import datetime as dt
 os.chdir(os.path.dirname(__file__)) #resets to current script directory
 
@@ -13,7 +15,7 @@ reload(helper_functions)
 # %%
 #Read master workbook for measure / tech list (note example commented line for specific measures)
 #df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx', sheet_name='Measure_list', skiprows=4)
-df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_working_fanbelts.xlsx', sheet_name='Measure_list', skiprows=4)
+df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx', sheet_name='Measure_list', skiprows=4)
 #df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_AshControl.xlsx', sheet_name='Measure_list', skiprows=4)
 measure_group_names = list(df_master['Measure Group Name'].unique())
 
@@ -30,7 +32,7 @@ print(measures)
 #Define measure name here (name of the measure folder itself) 
 ##NOTE: The example folder used here, 'SWXX111-00 Example_SEER_AC' is only used to illustrate an example workflow thru post-procesing
 #measure_name = 'SWXX111-00 Example_SEER_AC'
-measure_name = 'SWHC024-05 Fan Belt'
+measure_name = 'SWHC062-03 Occupancy Fan Controller'
 #measure_name = 'SWCR001-05 ASH_Controls'
 #filter to specific measure mapping records from mapping workbook
 df_measure = df_com[df_com['Modelkit Folder Primary Name']== measure_name]
@@ -45,7 +47,7 @@ print(os.path.abspath(os.curdir))
 #12/20/2023 After finishing Com, try to condense Res script so one script takes care of one measure folder?
 #to do: use for loop to loop over each folder, using if-else to process different building types for Res
 #filepath = f'commercial measures/{measure_name}'
-filepath = f'commercial measures/SWHC024-06 Fan Belt' #only changed this for testing
+filepath = f'commercial measures/{measure_name}'
 
 
 # %%
@@ -61,6 +63,67 @@ def locate_file(directory, target_file):
             print(f'found {target_file} in path:"{directory}"')
             return os.path.join(root, target_file)
     return None
+
+
+# --- Adaptations for this measure's modelkit run format (path-based names) ---
+# Runs are named CZ01/Asm/M1-cPTAC-Base/... (not ampersand cohort names), so
+# metadata comes from the path; the TechID token equals the workbook Common TechID.
+BLDGTYPE_CASE_FIX = {'Epr': 'EPr', 'Ese': 'ESe', 'Eun': 'EUn'}
+
+def normalize_bldgtype(bt):
+    return BLDGTYPE_CASE_FIX.get(bt, bt)
+
+# Map the end-use columns end_use_rearrange() needs to (RowName, ColumnName) in
+# the EnergyPlus AnnualBuildingUtilityPerformanceSummary "End Uses" table (kWh).
+ENDUSE_SQL_MAP = {
+    'Heating Elec (kWh)': ('Heating', 'Electricity'),
+    'Cooling Elec (kWh)': ('Cooling', 'Electricity'),
+    'Interior Equipment Elec (kWh)': ('Interior Equipment', 'Electricity'),
+    'Interior Lighting (kWh)': ('Interior Lighting', 'Electricity'),
+    'Exterior Lighting (kWh)': ('Exterior Lighting', 'Electricity'),
+    'Fans (kWh)': ('Fans', 'Electricity'),
+    'Pumps (kWh)': ('Pumps', 'Electricity'),
+    'Refrigeration (kWh)': ('Refrigeration', 'Electricity'),
+    'Exterior Equipment (kWh)': ('Exterior Equipment', 'Electricity'),
+    'Heating NG (kWh)': ('Heating', 'Natural Gas'),
+    'Cooling NG (kWh)': ('Cooling', 'Natural Gas'),
+    'Interior Equipment NG (kWh)': ('Interior Equipment', 'Natural Gas'),
+    'Water Systems (kWh)': ('Water Systems', 'Natural Gas'),
+}
+
+def read_enduse_from_sql(runs_dir):
+    '''Annual End Uses per run, read straight from each instance-out.sql (SQLite),
+    one file at a time -> all climate zones, any scale, no results-summary harvest.
+    Returns File Name (CZ/Bldg/Tech/instance-out.sql) + end-use kWh columns.'''
+    query = ("SELECT RowName, ColumnName, Value FROM TabularDataWithStrings "
+             "WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' "
+             "AND TableName='End Uses'")
+    sql_files = sorted(glob.glob(runs_dir + "/**/instance-out.sql", recursive=True))
+    #Optional single-building-type mode (set COM_BT_FILTER=canonical BT, e.g. 'EPr'):
+    #skips reading runs for other building types so per-type workbook passes stay fast.
+    bt_filter = os.environ.get("COM_BT_FILTER")
+    if bt_filter:
+        sql_files = [f for f in sql_files
+                     if normalize_bldgtype(os.path.relpath(f, runs_dir).replace(os.sep, "/").split("/")[1]) == bt_filter]
+        print(f"  COM_BT_FILTER={bt_filter}: {len(sql_files)} SQL files after filter")
+    rows = []
+    for n, f in enumerate(sql_files):
+        rel = os.path.relpath(f, runs_dir).replace(os.sep, '/')
+        try:
+            con = sqlite3.connect(f)
+            table = {(rn, cn): float(v) for rn, cn, v in con.execute(query)
+                     if v is not None and str(v).strip() != ''}
+            con.close()
+        except Exception as e:
+            print(f"  warning: could not read {rel}: {e}")
+            continue
+        row = {'File Name': rel}
+        for col, key in ENDUSE_SQL_MAP.items():
+            row[col] = table.get(key, 0.0)
+        rows.append(row)
+        if n and n % 2000 == 0:
+            print(f"  read {n}/{len(sql_files)} SQL files..")
+    return pd.DataFrame(rows)
 
 
 
@@ -285,44 +348,33 @@ def end_use_rearrange(df_in):
 ##STEP 1: Annual data extraction / transformation
 #creates unparsed table over all runs
 
+#Read annual End Uses per run straight from each run's instance-out.sql
+#(path-based names, all climate zones) -- no results-summary.csv harvest.
 df_annual_raw = pd.DataFrame()
-split_meta_cols_all = pd.DataFrame()
 folder_list = list_folders_in_path(filepath)
 for folder in folder_list:
     print(f"looking at folder {folder}..")
-    if locate_file(filepath+"/"+folder, 'results-summary.csv') != None:
-        #locate_file(filepath+"/"+folder, 'results-summary.csv')
-        print(f"'{filepath}/{folder}/results-summary.csv' will be processed.")
-        #insert subsequent processing here
-        df_raw = pd.read_csv(filepath+"/"+folder+'/results-summary.csv', usecols=['File Name'])
-        num_runs = len(df_raw['File Name'].dropna().unique()) - 1 
-        annual_df = pd.read_csv(filepath+"/"+folder+'/results-summary.csv', nrows=num_runs, skiprows=num_runs+2)
-        split_meta_cols_eu = annual_df['File Name'].str.split('/', expand=True)
-
-        #concat each dataset
-        df_annual_raw = pd.concat([df_annual_raw, annual_df])
-        split_meta_cols_all = pd.concat([split_meta_cols_all, split_meta_cols_eu])
-
-        print("processed.")
+    runs_dir = filepath + "/" + folder + "/runs"
+    if os.path.isdir(runs_dir):
+        print(f"'{runs_dir}' annual will be processed.")
+        annual_df = read_enduse_from_sql(runs_dir)
+        print(f"  {len(annual_df)} runs read from SQL.")
+        df_annual_raw = pd.concat([df_annual_raw, annual_df], ignore_index=True)
     else:
         print(f"no data found.")
 
 
 # %%
-#if looping over multiple folders/cohort cases, use a list
-#Com version
-
-cohort_cases = list(split_meta_cols_all[1].unique())
-#combine data
-sim_annual_proto = pd.DataFrame()
-for case in cohort_cases:
-    print(f'processing all annual data that are grouped in {case}')
-    cohort_dict = parse_measure_name(case)
-    sim_annual_filtered = df_annual_raw[df_annual_raw['File Name'].str.contains(case)].copy()
-    sim_annual_i = annual_raw_parsing_com(sim_annual_filtered, cohort_dict, case)
-    sim_annual_proto = pd.concat([sim_annual_proto, sim_annual_i])
-    print('ok.')
-sim_annual_proto = end_use_rearrange(sim_annual_proto)
+#Derive metadata from each run path (CZ##/BldgType/TechID/instance-out.sql)
+_p = df_annual_raw['File Name'].str.split('/', expand=True)
+df_annual_raw['BldgLoc'] = _p[0]
+df_annual_raw['BldgType'] = _p[1].map(normalize_bldgtype)
+df_annual_raw['TechID'] = _p[2]
+df_annual_raw['file'] = _p[3]
+df_annual_raw['BldgHVAC'] = _p[2].str.split('-').str[1]
+df_annual_raw['BldgVint'] = 'Ex'   # both study folders are Existing vintage
+df_annual_raw['Story'] = 0
+sim_annual_proto = end_use_rearrange(df_annual_raw)
 sim_annual_v1 = sim_annual_proto[['TechID', 'BldgLoc', 'BldgType', 'BldgHVAC', 'BldgVint', 'kwh_tot', 'kwh_ltg', 'kwh_task',
     'kwh_equip', 'kwh_htg', 'kwh_clg', 'kwh_twr', 'kwh_aux', 'kwh_vent',
     'kwh_venthtg', 'kwh_ventclg',
@@ -367,28 +419,29 @@ for folder in folder_list:
         hrly_subpath = filepath + "/" + folder + "/runs"
         print(hrly_subpath)
 
-        df_raw = pd.read_csv(subpath+'/'+'/results-summary.csv', usecols=['File Name'])
-        num_runs = len(df_raw['File Name'].dropna().unique()) - 1
-        annual_df = pd.read_csv(subpath+'/'+'/results-summary.csv', nrows=num_runs, skiprows=num_runs+2)
-        split_meta_cols_eu = annual_df['File Name'].str.split('/', expand=True)
-
-        for i in range(0,num_runs):
-            print(f"processing record {i}")
-            #loop path of each file, read corresponding file
-            base_path = (
-                f"{hrly_subpath}/"
-                f"{split_meta_cols_eu.iloc[i][0]}/"
-                f"{split_meta_cols_eu.iloc[i][1]}/"
-                f"{split_meta_cols_eu.iloc[i][2]}"
-                        )
-            csv_path = f"{base_path}/instance-var.csv"
+        #enumerate runs by directory (CZ/Bldg/Tech); read facility electricity
+        #from each run's eplusmtr.csv (present for all building types, incl. Eun).
+        run_dirs = [d for d in sorted(glob.glob(hrly_subpath + "/*/*/*")) if os.path.isdir(d)]
+        #Optional single-building-type mode (see read_enduse_from_sql).
+        bt_filter = os.environ.get("COM_BT_FILTER")
+        if bt_filter:
+            run_dirs = [d for d in run_dirs
+                        if normalize_bldgtype(os.path.relpath(d, hrly_subpath).replace(os.sep, "/").split("/")[1]) == bt_filter]
+            print(f"  COM_BT_FILTER={bt_filter}: {len(run_dirs)} run dirs after filter")
+        for i, base_path in enumerate(run_dirs):
+            rel = os.path.relpath(base_path, hrly_subpath).replace(os.sep, '/')  # CZ/Bldg/Tech
+            mtr_files = glob.glob(base_path + "/**/eplusmtr.csv", recursive=True)
+            if not mtr_files:
+                print(f"  no eplusmtr.csv for {rel}, skipping")
+                continue
+            mtr_path = max(mtr_files, key=os.path.getmtime)
             idf_path = f"{base_path}/instance.idf"
 
             #3/3/2026 update, extract RunPeriod Start Day from IDF file for a particular simulation
             runperiod_start_day = helper_functions.get_runperiod_start_day(idf_path)
 
             #remove trailing spaces for col name if it happens
-            df = pd.read_csv(csv_path, low_memory=False)
+            df = pd.read_csv(mtr_path, low_memory=False)
             df.columns = df.columns.str.strip()
 
             #extract values only
@@ -397,19 +450,15 @@ for folder in folder_list:
             #8760 values check
             if len(values) != 8760:
                 diff = len(values) - 8760
-                print(f'extra records: {len(values)}, snipping away {diff} records and changing to 8760')
                 values = values[diff:]
 
-            #construct combined string as column header
-            col_name = (
-                        f"{split_meta_cols_eu.iloc[i][0]}/"
-                        f"{split_meta_cols_eu.iloc[i][1]}/"
-                        f"{split_meta_cols_eu.iloc[i][2]}/"
-                        f"instance-var.csv/{runperiod_start_day}"
-                        )
-            
+            #construct combined string as column header (CZ/Bldg/Tech/file/RunPeriodStartDay)
+            col_name = f"{rel}/instance-var.csv/{runperiod_start_day}"
+
             #add in corresponding value from values
             hourly_data[col_name] = values
+            if i and i % 1000 == 0:
+                print(f"  {i}/{len(run_dirs)} runs read..")
 
         print(f"hourly data for '{subpath}' processed.")
     else:
@@ -583,9 +632,10 @@ if normunit in available_normunits:
     print(f'Current normalzing unit is {normunit}, proceeding')
 else:
     normunit_missing = True
-    raise ValueError(
-        f"Current normalizing unit(s) for this measure (Normunit = {raw_normunit}) not found on Normunit.xlsx table,\n" 
-        "please update Normunit.xlsx table appropriately and add corresponding normalizing unit and corresponding unit value(s).\n"
+    print(
+        f"note: Normunit '{normunit}' not found in Normunits.xlsx -- numunits will be a "
+        f"placeholder (set later by insert_normunits.py from sizing capacity). CEDARS "
+        f"load shapes are normalized by each run's annual sum, so they do not need it."
     )
     
 
@@ -638,7 +688,13 @@ for i, col_name in enumerate(fyr_hrly.columns):
         raise ValueError(f"{col_name} has {len(values)} rows")
     
     parts = col_name.split("/")
-    cohort = parse_measure_name(parts[1])
+    #path-based metadata: CZ/BldgType/TechID/file/RunPeriodStartDay
+    cohort = {
+        "BldgType": normalize_bldgtype(parts[1]),
+        "BldgHVAC": parts[2].split('-')[1],
+        "BldgVint": "Ex",
+        "Measure": parts[1],  #overwritten below via TechGroup_ee/TechType_ee lookup
+    }
 
     #hourly data value only put into dict
     long_data["Total_Elec_Consumption"].append(values)
@@ -715,6 +771,7 @@ StartDayToSourceYear = {
 }
 
 df_long['Sector'] = 'Com' #this is Com script, so Sector = Com
+df_long['NormUnit'] = normunit  #measure's normalizing unit (matches residential CEDARS format)
 df_long['Type (Whole Building or End Use)'] = 'Whole Building'
 df_long['Source Year'] = df_long['RunPeriod Start Day'].map(StartDayToSourceYear)
 
@@ -722,9 +779,9 @@ df_long.rename(columns={'hr in 8760': 'Hour of Year'}, inplace=True)
 
 #final table fields round-up
 #note: UEC and Numunits omitted from draft long table in the final table
-df_long_final = df_long[['Sector', 'BldgType','BldgVint','BldgHVAC','BldgLoc',
+df_long_final = df_long[['Sector', 'BldgType','BldgVint','BldgHVAC','BldgLoc','NormUnit',
          'Type (Whole Building or End Use)', 'Source Year', 'TechGroup', 'TechType','TechID',
-         'Hour of Year','UECproportion']] 
+         'Hour of Year','UECproportion']]
 #%%
 #output annual consumption of each permutation and store for later use if needed
 df_long_annual_loads = df_long[[
@@ -785,13 +842,12 @@ unit_lookup = df_normunits[['BldgType','Normunit','Value']]
 
 #check for missing first
 if normunit_missing == True:
-    # warnings.warn('Note: normunit = Each, numunit = 1 as placeholder to continue processing without the appropriate normunit.')
-    # sim_annual_v1['Value'] = 1
-    # sim_annual_v2 = sim_annual_v1
-    raise ValueError(
-        "Current normalizing unit(s) for this measure not found on Normunit.xlsx table,\n" 
-        "please update Normunit.xlsx table appropriately and add corresponding normalizing unit and corresponding unit value(s).\n"
-    )
+    #normunit not in Normunits.xlsx (e.g. Cap-Tons): use a placeholder numunits so
+    #processing continues; insert_normunits.py sets the real value from sizing later.
+    print(f"note: normunit '{normunit}' missing from Normunits.xlsx; using placeholder "
+          f"numunits (set later by insert_normunits.py).")
+    sim_annual_v2 = sim_annual_v1.copy()
+    sim_annual_v2['Value'] = np.nan
 #hard-code specific normunit examples, may be redundant
 elif (normunit == 'Each') & (normunit_missing == False):
     unit_table = unit_lookup[unit_lookup['Normunit']=='Each'][['BldgType','Normunit','Value']]
@@ -883,12 +939,11 @@ sim_annual_f = sim_annual_v3[['TechID', 'SizingID', 'BldgType','BldgVint','BldgL
 # %%
 ##Hourly Data final field fixes
 
-#update field names based on what it contains
-df_tmp = parse_measure_name2(sim_hourly_wb_v1['ID'],verify=True)
-sim_hourly_wb_v1['BldgVint'] = df_tmp['BldgVint']
-sim_hourly_wb_v1['BldgHVAC'] = df_tmp['BldgHVAC']
-sim_hourly_wb_v1['BldgType'] = df_tmp['BldgType']
-del df_tmp
+#derive metadata from the run-path ID (CZ/BldgType/TechID/file/RunPeriodStartDay)
+_idp = sim_hourly_wb_v1['ID'].str.split('/', expand=True)
+sim_hourly_wb_v1['BldgType'] = _idp[1].map(normalize_bldgtype)
+sim_hourly_wb_v1['BldgHVAC'] = _idp[2].str.split('-').str[1]
+sim_hourly_wb_v1['BldgVint'] = 'Ex'
 sim_hourly_wb_v1['SizingID'] = 'None'
 sim_hourly_wb_v1['tstat'] = 0
 sim_hourly_wb_v1['enduse'] = 0
