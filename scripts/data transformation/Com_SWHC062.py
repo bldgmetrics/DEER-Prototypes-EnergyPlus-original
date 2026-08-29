@@ -15,7 +15,10 @@ reload(helper_functions)
 # %%
 #Read master workbook for measure / tech list (note example commented line for specific measures)
 #df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx', sheet_name='Measure_list', skiprows=4)
-df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx', sheet_name='Measure_list', skiprows=4)
+#Workbook is selectable via COM_WORKBOOK so per-building-type workbooks can be
+#swapped in without touching the shared measure-list file (see run_com_by_bldgtype.py).
+WORKBOOK = os.environ.get('COM_WORKBOOK', 'DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx')
+df_master = pd.read_excel(WORKBOOK, sheet_name='Measure_list', skiprows=4)
 #df_master = pd.read_excel('DEER_EnergyPlus_Modelkit_Measure_list_AshControl.xlsx', sheet_name='Measure_list', skiprows=4)
 measure_group_names = list(df_master['Measure Group Name'].unique())
 

@@ -1,14 +1,13 @@
 #Run Com_SWHC062.py once per building-type workbook in DEER_EnergyPlus_Modelkit_Measure_list_working_dir,
 #stashing each pass's outputs under outputs_by_bldgtype/<BldgType>/.
-#Each pass copies the per-type workbook onto the plain workbook name the script reads,
-#and sets COM_BT_FILTER so it only reads that building type's runs.
-#Afterwards the plain workbook is restored to the Asm copy (the committed version).
+#Each pass points COM_WORKBOOK at the per-type workbook and sets COM_BT_FILTER so
+#only that building type's runs are read. The shared measure-list workbook is
+#never touched.
 import os, shutil, subprocess, sys, time
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 WB_DIR = "DEER_EnergyPlus_Modelkit_Measure_list_working_dir"
-PLAIN = "DEER_EnergyPlus_Modelkit_Measure_list_working.xlsx"
 OUT = "outputs_by_bldgtype"
 OUTPUTS = [
     "current_msr_mat.csv",
@@ -29,8 +28,8 @@ for wb in wbs:
     bt = wb.rsplit(" ", 1)[-1][:-5]  # '... OFC EPr.xlsx' -> 'EPr'
     dest = os.path.join(OUT, bt)
     os.makedirs(dest, exist_ok=True)
-    shutil.copyfile(os.path.join(WB_DIR, wb), PLAIN)
-    env = dict(os.environ, COM_BT_FILTER=bt)
+    env = dict(os.environ, COM_BT_FILTER=bt,
+               COM_WORKBOOK=os.path.abspath(os.path.join(WB_DIR, wb)))
     t0 = time.time()
     with open(os.path.join(dest, "com_run.log"), "w") as log:
         r = subprocess.run([sys.executable, "Com_SWHC062.py"], stdout=log, stderr=subprocess.STDOUT, env=env)
@@ -46,9 +45,6 @@ for wb in wbs:
     if r.returncode != 0:
         failures.append(bt)
     print(f"{bt}: {status}, {len(moved)}/{len(OUTPUTS)} outputs, {time.time()-t0:.0f}s", flush=True)
-
-# leave the plain workbook as the Asm (committed) version
-shutil.copyfile(os.path.join(WB_DIR, "DEER_EnergyPlus_Modelkit_Measure_list_working OFC Asm.xlsx"), PLAIN)
 
 print(f"done. failures: {failures if failures else 'none'}", flush=True)
 sys.exit(1 if failures else 0)
