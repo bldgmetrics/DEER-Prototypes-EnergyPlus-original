@@ -26,3 +26,23 @@ simdata*
 commercial measures/.DS_Store
 commercial measures/.DS_Store
 results-summary*.csv
+
+# local tooling / scratch
+__pycache__/
+*.log
+*.err
+.claude/
+
+# generated deliverables and stashes (shipped via ESFT, not git)
+eTRM deliverables/
+outputs_by_bldgtype/
+PGE_8760_zips/
+CEDARS_LoadShape_Com*
+SWHC062 Review Package*
+SWHC062 QC Outputs*
+
+# in-case backups kept beside the live files
+*.backup-*.csv
+*.bak*
+*_old.xlsx
+*-old-2].xlsx
