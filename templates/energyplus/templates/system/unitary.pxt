@@ -24,7 +24,7 @@ parameter "fan_power_per_flow_pressure", :default => 1.67  # W/((m3/s)-Pa) (only
 parameter "fan_low_speed_flow_frac", :default => 0.66 # (only relevant when fan_type = "SYSTEM-MODEL" and fan_speed = "DUAL")
 parameter "fan_low_speed_power_frac", :default => 0.4 # (only relevant when fan_type = "SYSTEM-MODEL" and fan_speed = "DUAL")
 
-#TRC - "SWHC023-05" measure: Adding the following variables to parameterize the multi-speed operation air flow ratio and associated supply fan power for UnitarySystems
+#TRC - SWHC023-03, SWHC041-05 measure: Adding the following variables to parameterize the multi-speed operation air flow ratio and associated supply fan power for UnitarySystems
 parameter "low_heating_supply_air_ratio", :default => 0.75
 parameter "low_cooling_supply_air_ratio", :default => 0.75
 parameter "ventilation_supply_air_ratio", :default => 0.4
@@ -356,6 +356,12 @@ AirLoopHVAC:UnitarySystem,
   Coil:Heating:Water,      !- Heating Coil Object Type
   <%= unitary_name %> Heating Coil,  !- Heating Coil Name
   ,                        !- DX Heating Coil Sizing Ratio
+<% elsif (heat_coil_type == "STEAM") %>
+<% # Added for steam boiler variant. Behzad Rizi 2024-01-08 %>
+  Coil:Heating:Steam,      !- Heating Coil Object Type
+  <%= unitary_name %> Heating Coil,  !- Heating Coil Name
+  ,                        !- DX Heating Coil Sizing Ratio
+
 <% elsif (heat_coil_type == "NONE") %>
   ,                        !- Heating Coil Object Type
   ,                        !- Heating Coil Name
@@ -2834,6 +2840,55 @@ Branch,
   <%= unitary_name %> HW Branch,  !- Name
   ,                        !- Pressure Drop Curve Name
   Coil:Heating:Water,      !- Component 1 Object Type
+  <%= unitary_name %> Heating Coil,  !- Component 1 Name
+  <%= unitary_name %> HeatCDemand Inlet Node,  !- Component 1 Inlet Node Name
+  <%= unitary_name %> HeatCDemand Outlet Node;  !- Component 1 Outlet Node Name
+
+
+<% elsif (heat_coil_type == "STEAM") %>
+<% # Added for steam boiler variant. Behzad Rizi 2024-01-08 %>
+Coil:Heating:Steam,
+  <%= unitary_name %> Heating Coil,  !- Name
+  ,                        !- Availability Schedule Name
+  Autosize,                !- Maximum Steam Flow Rate {m3/s}
+  1,                       !- Degree of SubCooling
+  10,                       !- Degree of Loop SubCooling
+  <%= unitary_name %> HeatCDemand Inlet Node,  !- Water Inlet Node Name
+  <%= unitary_name %> HeatCDemand Outlet Node,  !- Water Outlet Node Name
+<% if (fan_config == "DRAW-THROUGH" and cool_coil_type == "NONE") %>
+  <%= unitary_name %> Unitary Inlet Node,  !- Air Inlet Node Name
+<% elsif (fan_config == "BLOW-THROUGH" and cool_coil_type == "NONE") %>
+  <%= unitary_name %> Supply Fan Outlet Node,  !- Air Inlet Node Name
+<% else %>
+  <%= unitary_name %> Cooling Coil Outlet Node,  !- Air Inlet Node Name
+<% end %>
+<% if (fan_config == "BLOW-THROUGH" and aux_heat_coil_type == "NONE") %>
+  <%= unitary_name %> Unitary Outlet Node;  !- Air Outlet Node Name
+<% else %>
+  <%= unitary_name %> Heating Coil Outlet Node,  !- Air Outlet Node Name
+<% end %>
+   ZoneLoadControl;     !- Coil Control Type
+
+! Controller not needed with Unitary...?
+!Controller:WaterCoil,
+!  <%= unitary_name %> Heating Coil Controller,  !- Name
+!  Temperature,             !- Control Variable
+!  Normal,                  !- Action
+!  Flow,                    !- Actuator Variable
+<% if (fan_config == "BLOW-THROUGH" and aux_heat_coil_type == "NONE") %>
+!  <%= unitary_name %> Unitary Outlet Node,  !- Sensor Node Name
+<% else %>
+!  <%= unitary_name %> Heating Coil Outlet Node,  !- Sensor Node Name
+<% end %>
+!  <%= unitary_name %> HeatCDemand Inlet Node,  !- Actuator Node Name
+!  0.0001,                  !- Controller Convergence Tolerance {deltaC}
+!  Autosize,                !- Maximum Actuated Flow {m3/s}
+!  0.0;                     !- Minimum Actuated Flow {m3/s}
+
+Branch,
+  <%= unitary_name %> HW Branch,  !- Name
+  ,                        !- Pressure Drop Curve Name
+  Coil:Heating:Steam,      !- Component 1 Object Type
   <%= unitary_name %> Heating Coil,  !- Component 1 Name
   <%= unitary_name %> HeatCDemand Inlet Node,  !- Component 1 Inlet Node Name
   <%= unitary_name %> HeatCDemand Outlet Node;  !- Component 1 Outlet Node Name
