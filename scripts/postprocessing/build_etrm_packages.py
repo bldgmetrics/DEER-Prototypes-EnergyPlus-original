@@ -46,7 +46,7 @@ def build_inputs(measure_dir: Path, dest: Path):
             pruned = []
             for d in dirs:
                 reld = (rel_root / d).as_posix().lstrip("./")
-                if d in EXCLUDE_DIR_NAMES or d.startswith("runs") or d.startswith("LRM_outputs"):
+                if d in EXCLUDE_DIR_NAMES or d.startswith(("runs", "LRM_outputs", "CEDARS_", "PGE_", "postprocess")):
                     continue
                 # keep only this measure's folder among the measures dirs
                 if reld.count("/") == 1 and reld.split("/")[0].endswith("measures"):
@@ -57,7 +57,7 @@ def build_inputs(measure_dir: Path, dest: Path):
             for f in files:
                 rel = (rel_root / f).as_posix()
                 if (f in EXCLUDE_FILE_NAMES or f.startswith("simdata") or f.startswith("CEDARS_")
-                        or f.startswith("~$") or f.endswith(".backup")):
+                        or f.startswith("~$") or f.endswith(".backup") or f.endswith(".zip")):
                     continue
                 zf.write(rootp / f, rel)
                 count += 1

@@ -43,7 +43,7 @@ print(os.path.abspath(os.curdir))
 #path = 'residential measures/SWBE011-01 Windows\SWBE011-01 Windows_MFm\SWBE011-01 Windows_MFm_Msr1'
 #path = 'residential measures/SWSV001-05 Duct Seal/SWSV001-05 Duct Seal_MFm_Ex'
 #path = 'residential measures/SWBE007-02 Wall Insulation/SWBE007-02 Wall Insulation_MFm'
-path = 'residential measures/SWSV014 Lifecycle Refridgerant Management/SWSV014-06 LRM AC HP_MFm_Ex'
+path = 'residential measures/SWSV014-06-1 LRM/SWSV014-06 LRM AC HP_MFm_Ex'
 #"C:\DEER-Prototypes-EnergyPlus\residential measures\SWSV014 Lifecycle Refridgerant Management\SWSV014-06 LRM AC HP_MFm_Ex\results-summary.csv"
 # %%
 #extract only the 5th portion of the measure group name for expected_att

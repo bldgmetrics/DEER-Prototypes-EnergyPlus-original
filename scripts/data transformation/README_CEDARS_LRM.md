@@ -23,10 +23,10 @@ End-to-end procedure for the SWSV014 Lifecycle Refrigerant Management
 ## 1. Run the simulations
 
 For each study folder under
-`residential measures/SWSV014 Lifecycle Refridgerant Management/`
+`residential measures/SWSV014-06-1 LRM/`
 (`_DMo_Ex`, `_MFm_Ex`, `_SFm_1975`, `_SFm_1985`):
 
-    cd "X:\residential measures\SWSV014 Lifecycle Refridgerant Management\<study>"
+    cd "X:\residential measures\SWSV014-06-1 LRM\<study>"
     modelkit rake
 
 Notes:
@@ -41,8 +41,9 @@ Notes:
 
 ## 2. Extract per-run results (simdata)
 
-    python scripts/result2.py "<study folder>" -c    # simdata.csv
-    python scripts/result2.py "<study folder>" -w    # simdata.sqlite
+    cd "<study folder>"   # must run FROM the study folder (query.txt is resolved from the cwd)
+    python <repo>\scripts\result2.py . -c    # simdata.csv
+    python <repo>\scripts\result2.py . -w    # simdata.sqlite
 
 Then story-weight and normalize (scripts in the sibling
 DEER-Prototypes-EnergyPlus repo copy under scripts/):

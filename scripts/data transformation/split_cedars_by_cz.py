@@ -11,9 +11,9 @@ from decimal import Decimal
 from pathlib import Path
 
 STASH = Path(r"C:\DEER-Prototypes-EnergyPlus\scripts\data transformation\LRM_outputs_final")
-OUT = Path(r"C:\DEER-Prototypes-EnergyPlus\eTRM deliverables\SWSV014 CEDARS 8760s by CZ 2026-08-17")
+OUT = Path(r"C:\DEER-Prototypes-EnergyPlus\eTRM deliverables\SWSV014 CEDARS 8760s by CZ 2026-08-31")
 
-manifest = ["SWSV014 CEDARS 8760 load shapes - rebuilt 2026-08-17 (plain decimals)",
+manifest = ["SWSV014 CEDARS 8760 load shapes - rebuilt 2026-08-31 (hard-sized runs, plain decimals)",
             "Open the per-CZ .csv files directly in Excel; use the .zip copies for email.",
             "Checks: each TechID shape sums to 1.0; whole column L of a per-CZ file sums to 20;",
             "row count of every per-CZ csv = 175,201 including header.", ""]

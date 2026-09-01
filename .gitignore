@@ -30,3 +30,9 @@ scripts/data transformation/CEDARS_long_ls_*.zip
 eTRM deliverables/
 result2.log
 scripts/data transformation/LRM_outputs*/
+
+# local working files
+__pycache__/
+.claude/
+*.backup-*.xlsx
+*-origiinal.xlsx
