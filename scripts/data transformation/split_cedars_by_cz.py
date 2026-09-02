@@ -11,9 +11,9 @@ from decimal import Decimal
 from pathlib import Path
 
 STASH = Path(r"C:\DEER-Prototypes-EnergyPlus\scripts\data transformation\LRM_outputs_final")
-OUT = Path(r"C:\DEER-Prototypes-EnergyPlus\eTRM deliverables\SWSV014 CEDARS 8760s by CZ 2026-08-31")
+OUT = Path(r"C:\DEER-Prototypes-EnergyPlus\eTRM deliverables\SWSV014 CEDARS 8760s by CZ 2026-09-01")
 
-manifest = ["SWSV014 CEDARS 8760 load shapes - rebuilt 2026-08-31 (hard-sized runs, plain decimals)",
+manifest = ["SWSV014 CEDARS 8760 load shapes - rebuilt 2026-09-01 (HP heating COP fix, hard-sized runs, plain decimals)",
             "Open the per-CZ .csv files directly in Excel; use the .zip copies for email.",
             "Checks: each TechID shape sums to 1.0; whole column L of a per-CZ file sums to 20;",
             "row count of every per-CZ csv = 175,201 including header.", ""]
@@ -69,14 +69,11 @@ for bt in ["DMo", "MFm", "SFm"]:
     manifest.append(f"  {zp.name}: MD5={md5(zp)}")
     full_csv.unlink()
 
-    # per-CZ: keep csv AND zip
+    # per-CZ: plain csv only (no per-CZ zips in the deliverable)
     for i in range(1, 17):
         p = d / f"CEDARS_LoadShape_{bt}_CZ{i:02d}.csv"
-        zp = p.with_suffix(".zip")
-        with zipfile.ZipFile(zp, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-            zf.write(p, p.name)
         nrows = sum(1 for _ in open(p, "rb")) - 1
-        manifest.append(f"  {p.name}: data rows={nrows}, MD5={md5(p)} | {zp.name}: MD5={md5(zp)}")
+        manifest.append(f"  {p.name}: data rows={nrows}, MD5={md5(p)}")
         assert nrows == 175200, (p.name, nrows)
     print(bt, "done; shape sums:", f"{smin:.8f}..{smax:.8f}")
 
