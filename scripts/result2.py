@@ -19,11 +19,8 @@ Changelog
     * 2024-05-15 Filename patterns updated to match folders like runs1, runs-Asm, etc.
     * 2025-01-07 Apply DEER Peak calculation more selectively
     * 2025-07-24 Filename pattern matching revised for better consistency between different conventions
-<<<<<<< HEAD
     * 2026-01-19 Column names updated to improve consistency across models
     * 2026-03-03 Added options for DEER Peak demand: E-5152 (original behavior) and E-5350
-=======
->>>>>>> origin/main
 
 @Author: Nicholas Fette <nfette@solaris-technical.com>
 @Date: 2024-05-01
@@ -34,12 +31,9 @@ Changelog
 DEERPEAK_COLUMNS = ["Electricity:Facility [J](Hourly)"]
 # Do you want to append "(units)"" in the column name, if available?
 APPEND_UNITS = False
-<<<<<<< HEAD
 # Which definition of peak period dates to use?
 PEAK_VERSION = 'CZ2025' # 'E5152', 'E5350', 'CZ2025'
 
-=======
->>>>>>> origin/main
 
 ##STEP 0: Setup (import all necessary libraries)
 import re
@@ -67,15 +61,10 @@ import numpy as np
 import pandas as pd
 import tqdm
 
-<<<<<<< HEAD
 def get_deer_peak_day_E5152(bldgloc: str):
     """Return a for DEER peak period start day lookups.
     Dates are from Resolution E-5152 (DEER2023) Attachment A, Table A-3-2.
     The dates were derived using CZ2022 weather data.
-=======
-def get_deer_peak_day(bldgloc: str):
-    """Return a for DEER peak period start day lookups.
->>>>>>> origin/main
 
     Input:
         BldgLoc: str
@@ -105,7 +94,6 @@ def get_deer_peak_day(bldgloc: str):
     ])
     return peakperspec[bldgloc]
 
-<<<<<<< HEAD
 def get_deer_peak_day_E5350(bldgloc: str):
     """Return a for DEER peak period start day lookups.
     Dates are from Resolution E-5350 (DEER2026) Attachment A, Table A-1-5.
@@ -176,11 +164,6 @@ def get_deer_peak_day_CZ2025(bldgloc: str):
 @cache
 def get_deer_peak_multipliers(BldgLoc: str,
                           days=3, start_hr=16, end_hr=21, dst=True, version=PEAK_VERSION):
-=======
-@cache
-def get_deer_peak_multipliers(BldgLoc: str,
-                          days=3, start_hr=16, end_hr=21, dst=True):
->>>>>>> origin/main
     """Return a masking array useful to calculate an average over DEER Peak Period.
 
     Note that for compatibility, simulation data must be an 8760-length array
@@ -208,7 +191,6 @@ def get_deer_peak_multipliers(BldgLoc: str,
         dpm = deer_peak_multipliers('CZ11')
         dpload = sum(load_data * dpm)
     """
-<<<<<<< HEAD
     if version == 'E5152':
         peak_day = get_deer_peak_day_E5152(BldgLoc)
     elif version == 'E5350':
@@ -217,9 +199,6 @@ def get_deer_peak_multipliers(BldgLoc: str,
         peak_day = get_deer_peak_day_CZ2025(BldgLoc)
     else:
         raise ValueError(f'Unrecognized peak date version: {version}')
-=======
-    peak_day = get_deer_peak_day(BldgLoc)
->>>>>>> origin/main
     # In case start_hr and end_hr are given in daylight saving time (DST), shift back to standard time.
     # time_dst = time_standard + 1
     start_hr -= 1 * dst
@@ -401,16 +380,11 @@ def get_sim_hourly(conn: Connection, column_filter=None):
     # LookupKey looks like:
     #   If 'EL7 NORTH PERIM ZN (G.N2):Zone Total Internal Total Heating Energy [J](Hourly)'
     # LookupKey looks like 'EL7 NORTH PERIM ZN (G.N2):Zone Total Internal Total Heating Energy [J](Hourly)'
-<<<<<<< HEAD
     # Note: for facility-level meters (e.g. Electricity:Facility), KeyValue is SQL NULL,
     # which pandas reads as float NaN. bool(NaN) is True, so guard on string type to avoid
     # building a bogus "nan:..." prefix that would break column_filter matching.
     ReportDataDictionary['LookupKey']=ReportDataDictionary.apply(
         lambda x: f'{x.KeyValue}:{x.Name} [{x.Units}]({x.ReportingFrequency})' if (isinstance(x.KeyValue, str) and x.KeyValue.strip())
-=======
-    ReportDataDictionary['LookupKey']=ReportDataDictionary.apply(
-        lambda x: f'{x.KeyValue}:{x.Name} [{x.Units}]({x.ReportingFrequency})' if bool(x.KeyValue)
->>>>>>> origin/main
         else f'{x.Name} [{x.Units}]({x.ReportingFrequency})'
         , axis=1)
 
@@ -453,11 +427,8 @@ def get_sim_deer_peak(conn: Connection, bldgloc: str, column_filter=DEERPEAK_COL
         deer_peak_values: dict
             Lookup where each item `(k, v)` represents the average value `v`
             of the hourly variable named `k` over the DEER Peak Period.
-<<<<<<< HEAD
 
     E-5350: Effective PY2028
-=======
->>>>>>> origin/main
     """
     # Get all available hourly results with shape (N, 8760)
     ReportDataWide = get_sim_hourly(conn, column_filter=column_filter)
@@ -592,7 +563,6 @@ def get_sim_peak_and_tabular(queryfile: Path,
 
     return sim_data
 
-<<<<<<< HEAD
 def get_sim_tabular_long(
         queryfile: Path,
         sqlfile: Path,
@@ -634,8 +604,6 @@ def get_sim_tabular_long(
 
     return tabular_data
 
-=======
->>>>>>> origin/main
 def get_runs_instances(study: Path, search_pattern = '**/instance*-out.sql', exclude = 'instance-size-out.sql'):
     r"""Returns a list of all of SQLite output files in a modelkit study folder.
 
@@ -661,7 +629,6 @@ def get_runs_instances(study: Path, search_pattern = '**/instance*-out.sql', exc
         Default metadata fields:
             'File Name'
                 File path relative to study folder, with forward slashes.
-<<<<<<< HEAD
             'BldgLoc'
                 CEC Climate Zone (CZ01, CZ02, ..., CZ16)
             'BldgType'
@@ -682,8 +649,6 @@ def get_runs_instances(study: Path, search_pattern = '**/instance*-out.sql', exc
                 The entire cohort name (SFm&1&rDXGF&Ex&SpaceHtg_eq__GasFurnace)
             'Case'
                 The case name
-=======
->>>>>>> origin/main
     """
     if not isinstance(study, Path):
         study = Path(study)
@@ -802,7 +767,6 @@ def gather_sim_data(study: Path, queryfile: Path, parallel=False):
                     yield sim_data
                     time.sleep(0.001)
 
-<<<<<<< HEAD
 def gather_sim_data_long(study: Path, queryfile: Path, parallel=False):
     r"""Returns a generator yielding simulation data from each simulation in long table format.
 
@@ -867,8 +831,6 @@ def gather_sim_data_long(study: Path, queryfile: Path, parallel=False):
                     yield (sqlfile, bldgloc, metadata, tabular_data)
                     time.sleep(0.001)
 
-=======
->>>>>>> origin/main
 def gather_sim_data_to_csv(study: Path, queryfile: Path, csvfile: Path,
                            parallel = True,
                            chunksize = 100):
@@ -878,11 +840,7 @@ def gather_sim_data_to_csv(study: Path, queryfile: Path, csvfile: Path,
     gather = gather_sim_data(study, queryfile, parallel)
     with open(csvfile, 'w', newline='') as f:
         if chunksize is None:
-<<<<<<< HEAD
             # Get all records at once to guarantee headers are the same for all rows
-=======
-            # Get all records at once to gaurantee headers are the same for all rows
->>>>>>> origin/main
             records = list(gather)
             df_sim_data = pd.DataFrame.from_records(records)
             df_sim_data.to_csv(f, index=False)
@@ -907,7 +865,6 @@ def gather_sim_data_to_sqlite(study: Path, queryfile: Path, sqlfile: Path,
                 df_sim_data = pd.DataFrame.from_records(records)
                 df_sim_data.to_sql('sim_data', conn, index=False, if_exists='append')
 
-<<<<<<< HEAD
 def gather_sim_data_to_sqlite_long(study: Path, queryfile: Path, sqlfile: Path,
                               parallel = True):
 
@@ -973,8 +930,6 @@ def gather_sim_data_to_csv_long(
     #             df_sim_data = pd.DataFrame.from_records(records)
     #             df_sim_data.to_csv(f, index=False, header=(i==0))
 
-=======
->>>>>>> origin/main
 def build_cli_parser(parser: argparse.ArgumentParser,
                      study_kwargs = {},
                      queryfile_kwargs = {},
@@ -990,20 +945,15 @@ def build_cli_parser(parser: argparse.ArgumentParser,
     #                    help=r'Output file, e.g. simdata.csv',
     #                    **outputfile_kwargs)
     parser.add_argument('-P', '--parallel', action='store_false', help='Disable parallel mode.')
-<<<<<<< HEAD
     parser.add_argument('-c', '--csv', action='store_true', help='Write output in wide csv format.')
     parser.add_argument('-l', '--long', action='store_true', help='If writing to CSV, store data in tabular (long) format.')
     parser.add_argument('-w', '--wide', action='store_true', help='If writing to SQLite, store data in wide format.')
-=======
-    parser.add_argument('-s', '--sqlite', action='store_true', help='Write output in SQLite format.')
->>>>>>> origin/main
 
 def cli_main():
     """Starts the script on command line."""
     parser = argparse.ArgumentParser()
     build_cli_parser(parser)
     pargs = parser.parse_args()
-<<<<<<< HEAD
     if pargs.csv:
         gather_sim_data_to_csv(pargs.study, pargs.queryfile, 'simdata.csv', pargs.parallel)
     elif pargs.long:
@@ -1012,12 +962,6 @@ def cli_main():
         gather_sim_data_to_sqlite(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
     else:
         gather_sim_data_to_sqlite_long(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
-=======
-    if pargs.sqlite:
-        gather_sim_data_to_sqlite(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
-    else:
-        gather_sim_data_to_csv(pargs.study, pargs.queryfile, 'simdata.csv', pargs.parallel)
->>>>>>> origin/main
 
 def gooey_main():
     """Opens a window for user to input options and start the script."""
@@ -1031,7 +975,6 @@ def gooey_main():
           #outputfile_kwargs = dict(widget='FileChooser')
           )
     pargs = parser.parse_args()
-<<<<<<< HEAD
     if pargs.csv:
         gather_sim_data_to_csv(pargs.study, pargs.queryfile, 'simdata.csv', pargs.parallel)
     elif pargs.long:
@@ -1040,12 +983,6 @@ def gooey_main():
         gather_sim_data_to_sqlite(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
     else:
         gather_sim_data_to_sqlite_long(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
-=======
-    if pargs.sqlite:
-        gather_sim_data_to_sqlite(pargs.study, pargs.queryfile, 'simdata.sqlite', pargs.parallel)
-    else:
-        gather_sim_data_to_csv(pargs.study, pargs.queryfile, 'simdata.csv', pargs.parallel)
->>>>>>> origin/main
 
 def test():
     """Starts the script with hard-coded options."""
@@ -1057,8 +994,4 @@ def test():
 if "__main__" == __name__:
     cli_main()
     #gooey_main()
-<<<<<<< HEAD
     #test()
-=======
-    #test()
->>>>>>> origin/main
